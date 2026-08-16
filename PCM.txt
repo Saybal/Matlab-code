@@ -1,0 +1,96 @@
+% MATLAB Script: Pulse Code Modulation (PCM) Schematic Diagram
+clear; clc; close all;
+
+% 1. Simulation Parameters
+fm = 1;                     % Analog message frequency (Hz)
+n_bits = 3;                 % Bits per sample (3-bit PCM -> 8 Quantization Levels)
+L = 2^n_bits;               % Number of quantization levels (8)
+num_samples = 5;            % Number of analog samples
+fs = 5;                     % Sampling frequency (Hz)
+dt = 1 / fs;
+t_max = num_samples * dt;
+
+% High-resolution time vector for continuous analog message signal
+t_analog = linspace(0, t_max, 1000);
+m_analog = sin(2 * pi * fm * t_analog); % Sine wave normalized [-1, 1]
+
+% Sampling instants and sampled values
+t_sample = (0:num_samples-1) * dt + dt/2;
+m_sample = sin(2 * pi * fm * t_sample);
+
+% 2. Quantization Logic (Uniform 8-Level Quantizer)
+% Map [-1, 1] to integer levels 0 to 7 (L-1)
+q_levels = round((m_sample + 1) / 2 * (L - 1));
+m_quantized = (q_levels / (L - 1)) * 2 - 1; % Normalized quantized values
+
+% 3. PCM Binary Encoding
+pcm_bits = [];
+for i = 1:num_samples
+    bit_str = dec2bin(q_levels(i), n_bits);
+    for b = 1:n_bits
+        pcm_bits = [pcm_bits, str2double(bit_str(b))];
+    end
+end
+total_bits = length(pcm_bits);
+
+% Construct PCM Square Pulse Train Waveform
+t_pcm = [];
+v_pcm = [];
+bit_duration = t_max / total_bits;
+
+for b = 1:total_bits
+    t_start = (b - 1) * bit_duration;
+    t_end   = b * bit_duration;
+    t_pcm = [t_pcm, t_start, t_end];
+    v_pcm = [v_pcm, pcm_bits(b), pcm_bits(b)];
+end
+
+% 4. Baseline Offsets for Vertical Stacking
+y_analog_base = 3.8;
+y_pcm_base    = 0.8;
+amp = 0.6; % Waveform scaling factor
+
+% 5. Rendering Figure Canvas
+fig = figure('Color', 'w', 'Position', [100, 100, 850, 540]);
+hold on; axis off;
+
+% Draw Dark Top Banner
+rectangle('Position', [-0.15 * t_max, 6.2, 1.3 * t_max, 0.6], ...
+    'FaceColor', [0.12 0.10 0.10], 'EdgeColor', 'none');
+text(t_max / 2, 6.5, 'PULSE CODE MODULATION (PCM)', ...
+    'Color', 'w', 'FontSize', 12, 'FontWeight', 'bold', ...
+    'HorizontalAlignment', 'center', 'FontName', 'Arial');
+
+% Vertical Dashed Grid Lines (Bit Intervals)
+grid_color = [0.65, 0.65, 0.50];
+for i = 0:total_bits
+    t_line = i * bit_duration;
+    line([t_line, t_line], [0.1, 5.9], 'Color', grid_color, 'LineStyle', '--', 'LineWidth', 1);
+end
+
+% Plot Analog Signal (Blue Line)
+plot(t_analog, y_analog_base + amp * m_analog, 'Color', [0 0.447 0.741], 'LineWidth', 2);
+
+% Plot Quantized Sample Points (Red Stems)
+stem(t_sample, y_analog_base + amp * m_quantized, 'r', 'LineWidth', 1.5, ...
+    'MarkerFaceColor', 'r', 'MarkerSize', 5);
+
+% Plot PCM Digital Output Waveform (Black Square Wave)
+plot(t_pcm, y_pcm_base + amp * v_pcm, 'k', 'LineWidth', 1.6);
+
+% Display Bit Digits Above PCM Signal
+for b = 1:total_bits
+    text((b - 0.5) * bit_duration, 5.8, num2str(pcm_bits(b)), 'FontSize', 10, ...
+        'FontWeight', 'bold', 'HorizontalAlignment', 'center');
+end
+
+% Side Axis Labels
+text(-0.02 * t_max, y_analog_base + 0.3, sprintf('Analog Signal m(t)\n& Quantized Samples'), ...
+    'FontSize', 10, 'HorizontalAlignment', 'right', 'FontWeight', 'bold');
+text(-0.02 * t_max, y_pcm_base + 0.3, sprintf('PCM Bitstream\n(Encoded Output)'), ...
+    'FontSize', 10, 'HorizontalAlignment', 'right', 'FontWeight', 'bold');
+
+% Canvas Boundaries
+xlim([-0.18 * t_max, 1.12 * t_max]);
+ylim([-0.2, 7.0]);
+hold off;
